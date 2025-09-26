@@ -12,23 +12,10 @@ const app = express();
 // ------------------------
 // Middleware
 // ------------------------
-const allowedOrigins = [
-  "http://localhost:5173",          // local dev frontend
-  "https://syntellite-a17n.vercel.app" // deployed frontend
-];
-
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin like mobile apps or curl
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      } else {
-        return callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true, // allow cookies
+    origin: "",
+    credentials: true,
   })
 );
 app.use(bodyParser.json());
