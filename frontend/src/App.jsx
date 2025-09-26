@@ -3,6 +3,8 @@ import axios from "axios";
 import { FaSpinner, FaPlus, FaTrash } from "react-icons/fa";
 
 export default function App() {
+  const BACKEND_URL = import.meta.env.VITE_BACKEND_URL; // ✅ use environment variable
+
   const [tab, setTab] = useState("register"); // "register" or "admin"
   const [formData, setFormData] = useState({
     name: "",
@@ -10,7 +12,7 @@ export default function App() {
     college: "",
     branch: "",
     courses: [],
-    timestamp: "", // ✅ added timestamp field
+    timestamp: "",
   });
   const [courses, setCourses] = useState([]);
   const [status, setStatus] = useState("");
@@ -25,7 +27,7 @@ export default function App() {
 
   const fetchCourses = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/courses");
+      const res = await axios.get(`${BACKEND_URL}/courses`);
       setCourses(res.data);
     } catch (err) {
       console.error(err);
@@ -39,17 +41,14 @@ export default function App() {
     e.preventDefault();
     setStatus("loading");
 
-    // ✅ Add timestamp before sending
     const submissionData = {
       ...formData,
-      timestamp: new Date().toLocaleString(), // human-readable timestamp
+      timestamp: new Date().toLocaleString(),
     };
 
     try {
-      await axios.post("http://localhost:5000/register", submissionData);
+      await axios.post(`${BACKEND_URL}/register`, submissionData);
       setStatus("success");
-
-      // reset form
       setFormData({
         name: "",
         email: "",
@@ -65,10 +64,7 @@ export default function App() {
 
   const handleAdminLogin = async () => {
     try {
-      const res = await axios.post(
-        "http://localhost:5000/admin/login",
-        adminLogin
-      );
+      const res = await axios.post(`${BACKEND_URL}/admin/login`, adminLogin);
       if (res.data.success) {
         setIsAdmin(true);
         setAdminStatus("Login successful!");
@@ -83,7 +79,7 @@ export default function App() {
   const addCourse = async () => {
     if (!newCourse.trim()) return;
     try {
-      const res = await axios.post("http://localhost:5000/admin/courses", {
+      const res = await axios.post(`${BACKEND_URL}/admin/courses`, {
         course: newCourse,
       });
       setCourses(res.data.courses);
@@ -98,7 +94,7 @@ export default function App() {
   const deleteCourse = async (course) => {
     try {
       const res = await axios.delete(
-        `http://localhost:5000/admin/courses/${encodeURIComponent(course)}`
+        `${BACKEND_URL}/admin/courses/${encodeURIComponent(course)}`
       );
       setCourses(res.data.courses);
       setAdminStatus("Course deleted!");
@@ -323,9 +319,7 @@ export default function App() {
                     key={course}
                     className="flex justify-between items-center bg-pink-50 border border-pink-200 px-3 py-2 rounded-xl"
                   >
-                    <span className="font-semibold text-pink-700">
-                      {course}
-                    </span>
+                    <span className="font-semibold text-pink-700">{course}</span>
                     <button
                       onClick={() => deleteCourse(course)}
                       className="text-red-600 hover:text-red-800 transition"
