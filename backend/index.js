@@ -2,59 +2,53 @@ require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
-const { google } = require("googleapis");
 const nodemailer = require("nodemailer");
 const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 
 const app = express();
-app.use(cors());
+
+// ------------------------
+// Middleware
+// ------------------------
+app.use(
+  cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+  })
+);
 app.use(bodyParser.json());
+app.use(cookieParser());
 
 // ------------------------
 // MongoDB Setup
 // ------------------------
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("MongoDB connected"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-const courseSchema = new mongoose.Schema({ name: { type: String, unique: true } });
+const courseSchema = new mongoose.Schema({
+  name: { type: String, unique: true, required: true },
+  description: { type: String, default: "No description provided" }, // new field
+});
+
 const Course = mongoose.model("Course", courseSchema);
 
-// ------------------------
-// Google Sheets Setup
-// ------------------------
-async function appendToSheet(data) {
-  const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-  });
-
-  const sheets = google.sheets({ version: "v4", auth: await auth.getClient() });
-  const spreadsheetId = process.env.SPREADSHEET_ID;
-
-  const coursesStr = Array.isArray(data.courses) ? data.courses.join(", ") : data.courses;
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: "Sheet1!A:F", // ✅ Now 6 columns instead of 5
-    valueInputOption: "USER_ENTERED",
-    requestBody: {
-      values: [[
-        data.name,
-        data.email,
-        data.college,
-        data.branch,
-        coursesStr,
-        data.timestamp || new Date().toLocaleString() // ✅ store timestamp
-      ]],
-    },
-  });
-}
-
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String, unique: true,required: true ,lowercase: true, trim: true },
+  college: { type: String, required: true },
+  branch: { type: String, required: true },
+  courses: { type: [String], required: true },
+  timestamp: { type: Date, default: Date.now },
+  status: { type: String, enum: ["pending", "accepted", "rejected"], default: "pending" },
+});
+const User = mongoose.model("User", userSchema);
 
 // ------------------------
-// Nodemailer Setup
+// Nodemailer
 // ------------------------
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -65,78 +59,155 @@ const transporter = nodemailer.createTransport({
 });
 
 // ------------------------
+// Middleware: Verify Admin JWT
+// ------------------------
+const verifyAdmin = (req, res, next) => {
+  const token = req.cookies?.adminToken;
+  if (!token) return res.status(401).send({ message: "Unauthorized" });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.admin = decoded;
+    next();
+  } catch {
+    res.status(401).send({ message: "Unauthorized" });
+  }
+};
+
+// ------------------------
 // Endpoints
 // ------------------------
 
-// 1️⃣ Get available courses
+// Get all courses
 app.get("/courses", async (req, res) => {
   try {
-    const courses = await Course.find({}, { _id: 0, name: 1 }).sort({ name: 1 });
-    res.send(courses.map(c => c.name));
+    const courses = await Course.find({}, { _id: 0, name: 1, description: 1 }).sort({ name: 1 });
+    res.send(courses);
   } catch (err) {
-    res.status(500).send({ message: "Error fetching courses", error: err.message });
+    res.status(500).send({ message: err.message });
   }
 });
 
-// 2️⃣ Admin login
+// Admin login
 app.post("/admin/login", (req, res) => {
   const { username, password } = req.body;
   if (username === process.env.USER_NAME && password === process.env.PASS_WORD) {
+    const token = jwt.sign({ username }, process.env.JWT_SECRET, { expiresIn: "1d" });
+    res.cookie("adminToken", token, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: false,
+    });
     return res.send({ success: true, message: "Login successful" });
   }
   res.status(401).send({ success: false, message: "Invalid credentials" });
 });
 
-// 3️⃣ Admin add course
-app.post("/admin/courses", async (req, res) => {
-  const { course } = req.body;
+// Admin logout
+app.post("/admin/logout", (req, res) => {
+  res.clearCookie("adminToken", { httpOnly: true, sameSite: "lax" });
+  res.send({ success: true, message: "Logged out" });
+});
+
+// Admin session check
+app.get("/admin/check", (req, res) => {
+  const token = req.cookies?.adminToken;
+  if (!token) return res.send({ loggedIn: false });
   try {
-    if (!course?.trim()) return res.status(400).send({ message: "Invalid course name" });
-
-    const newCourse = new Course({ name: course.trim() });
-    await newCourse.save();
-
-    const courses = await Course.find({}, { _id: 0, name: 1 }).sort({ name: 1 });
-    res.send({ message: "Course added", courses: courses.map(c => c.name) });
-  } catch (err) {
-    res.status(400).send({ message: "Duplicate or invalid course", error: err.message });
+    jwt.verify(token, process.env.JWT_SECRET);
+    res.send({ loggedIn: true });
+  } catch {
+    res.send({ loggedIn: false });
   }
 });
 
-// 4️⃣ Admin delete course
-app.delete("/admin/courses/:courseName", async (req, res) => {
-  const courseName = decodeURIComponent(req.params.courseName);
+// Fetch all users
+app.get("/admin/users", verifyAdmin, async (req, res) => {
   try {
-    await Course.deleteOne({ name: courseName });
-    const courses = await Course.find({}, { _id: 0, name: 1 }).sort({ name: 1 });
-    res.send({ message: "Course deleted", courses: courses.map(c => c.name) });
+    const users = await User.find().sort({ timestamp: -1 });
+    res.send(users);
   } catch (err) {
-    res.status(500).send({ message: "Error deleting course", error: err.message });
+    res.status(500).send({ message: err.message });
   }
 });
 
-// 5️⃣ User registration
-app.post("/register", async (req, res) => {
-  const data = req.body;
+// Update user status
+app.post("/admin/users/:id/status", verifyAdmin, async (req, res) => {
+  const { status } = req.body;
   try {
-    await appendToSheet(data);
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).send({ message: "User not found" });
 
-    const coursesStr = Array.isArray(data.courses) ? data.courses.join(", ") : data.courses;
+    user.status = status;
+    await user.save();
+
+    // Email notification
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
-      to: data.email,
-      subject: "Course Registration Successful",
-      text: `Hello ${data.name},\n\nYou have successfully registered for the following courses:\n${coursesStr}\n\nThank you!`,
+      to: user.email,
+      subject: `Registration ${status.toUpperCase()}`,
+      text: `Hello ${user.name},\n\nYour registration has been ${status}.\n\nThank you!`,
     });
 
-    res.status(200).send({ message: "Registered successfully!" });
+    res.send({ message: `User ${status} successfully` });
   } catch (err) {
-    res.status(500).send({ message: "Error occurred.", error: err.message });
+    res.status(500).send({ message: err.message });
+  }
+});
+
+// Add course
+app.post("/admin/courses", verifyAdmin, async (req, res) => {
+  const { name, description } = req.body;
+  try {
+    if (!name?.trim()) return res.status(400).send({ message: "Invalid course name" });
+    
+    const newCourse = new Course({ name: name.trim(), description: description || "No description provided" });
+    await newCourse.save();
+
+    const courses = await Course.find({}, { _id: 0, name: 1, description: 1 }).sort({ name: 1 });
+    res.send({ courses });
+  } catch (err) {
+    res.status(400).send({ message: err.message });
+  }
+});
+
+// Delete course
+app.delete("/admin/courses/:courseName", verifyAdmin, async (req, res) => {
+  try {
+    const courseName = decodeURIComponent(req.params.courseName);
+    await Course.deleteOne({ name: courseName });
+    const courses = await Course.find({}, { _id: 0, name: 1, description: 1 }).sort({ name: 1 });
+    res.send({ courses });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
+});
+
+// User registration with validation
+app.post("/register", async (req, res) => {
+  try {
+    const data = req.body;
+
+    // Normalize email
+    data.email = data.email.trim().toLowerCase();
+
+    // Extra check before saving
+    const existingUser = await User.findOne({ email: data.email });
+    if (existingUser) {
+      return res.status(400).send({ message: "Email already registered!" });
+    }
+
+    const newUser = new User(data);
+    await newUser.save();
+
+    res.status(200).send({ message: "Registered successfully, pending approval!" });
+  } catch (err) {
+    console.error("Registration error:", err);
+    res.status(500).send({ message: err.message });
   }
 });
 
 // ------------------------
-// Start Server
+// Start server
 // ------------------------
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
