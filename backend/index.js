@@ -24,7 +24,6 @@ const Course = mongoose.model("Course", courseSchema);
 // Google Sheets Setup
 // ------------------------
 async function appendToSheet(data) {
-
   const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
   const auth = new google.auth.GoogleAuth({
     credentials,
@@ -38,13 +37,21 @@ async function appendToSheet(data) {
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: "Sheet1!A:E",
+    range: "Sheet1!A:F", // ✅ Now 6 columns instead of 5
     valueInputOption: "USER_ENTERED",
     requestBody: {
-      values: [[data.name, data.email, data.college, data.branch, coursesStr]],
+      values: [[
+        data.name,
+        data.email,
+        data.college,
+        data.branch,
+        coursesStr,
+        data.timestamp || new Date().toLocaleString() // ✅ store timestamp
+      ]],
     },
   });
 }
+
 
 // ------------------------
 // Nodemailer Setup

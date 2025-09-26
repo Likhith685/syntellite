@@ -10,6 +10,7 @@ export default function App() {
     college: "",
     branch: "",
     courses: [],
+    timestamp: "", // ✅ added timestamp field
   });
   const [courses, setCourses] = useState([]);
   const [status, setStatus] = useState("");
@@ -37,10 +38,26 @@ export default function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus("loading");
+
+    // ✅ Add timestamp before sending
+    const submissionData = {
+      ...formData,
+      timestamp: new Date().toLocaleString(), // human-readable timestamp
+    };
+
     try {
-      await axios.post("http://localhost:5000/register", formData);
+      await axios.post("http://localhost:5000/register", submissionData);
       setStatus("success");
-      setFormData({ name: "", email: "", college: "", branch: "", courses: [] });
+
+      // reset form
+      setFormData({
+        name: "",
+        email: "",
+        college: "",
+        branch: "",
+        courses: [],
+        timestamp: "",
+      });
     } catch (err) {
       setStatus("error");
     }
@@ -48,7 +65,10 @@ export default function App() {
 
   const handleAdminLogin = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/admin/login", adminLogin);
+      const res = await axios.post(
+        "http://localhost:5000/admin/login",
+        adminLogin
+      );
       if (res.data.success) {
         setIsAdmin(true);
         setAdminStatus("Login successful!");
@@ -63,7 +83,9 @@ export default function App() {
   const addCourse = async () => {
     if (!newCourse.trim()) return;
     try {
-      const res = await axios.post("http://localhost:5000/admin/courses", { course: newCourse });
+      const res = await axios.post("http://localhost:5000/admin/courses", {
+        course: newCourse,
+      });
       setCourses(res.data.courses);
       setNewCourse("");
       setAdminStatus("Course added!");
@@ -75,7 +97,9 @@ export default function App() {
 
   const deleteCourse = async (course) => {
     try {
-      const res = await axios.delete(`http://localhost:5000/admin/courses/${encodeURIComponent(course)}`);
+      const res = await axios.delete(
+        `http://localhost:5000/admin/courses/${encodeURIComponent(course)}`
+      );
       setCourses(res.data.courses);
       setAdminStatus("Course deleted!");
       setTimeout(() => setAdminStatus(""), 3000);
@@ -100,7 +124,9 @@ export default function App() {
       <div className="flex mb-6 space-x-4">
         <button
           className={`px-6 py-2 rounded-xl font-semibold transition ${
-            tab === "register" ? "bg-purple-500 text-white" : "bg-white text-purple-700 shadow"
+            tab === "register"
+              ? "bg-purple-500 text-white"
+              : "bg-white text-purple-700 shadow"
           }`}
           onClick={() => setTab("register")}
         >
@@ -108,7 +134,9 @@ export default function App() {
         </button>
         <button
           className={`px-6 py-2 rounded-xl font-semibold transition ${
-            tab === "admin" ? "bg-pink-500 text-white" : "bg-white text-pink-700 shadow"
+            tab === "admin"
+              ? "bg-pink-500 text-white"
+              : "bg-white text-pink-700 shadow"
           }`}
           onClick={() => setTab("admin")}
         >
@@ -119,12 +147,46 @@ export default function App() {
       {/* Registration Tab */}
       {tab === "register" && (
         <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl p-10 md:p-14 animate-fadeIn">
-          <h2 className="text-3xl font-bold text-center mb-8 text-purple-700">User Registration</h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <input type="text" name="name" placeholder="Name" value={formData.name} onChange={handleChange} className="p-3 rounded-xl border w-full" required />
-            <input type="email" name="email" placeholder="Email" value={formData.email} onChange={handleChange} className="p-3 rounded-xl border w-full" required />
-            <input type="text" name="college" placeholder="College" value={formData.college} onChange={handleChange} className="p-3 rounded-xl border w-full md:col-span-2" required />
-            <select name="branch" value={formData.branch} onChange={handleChange} className="p-3 rounded-xl border w-full">
+          <h2 className="text-3xl font-bold text-center mb-8 text-purple-700">
+            User Registration
+          </h2>
+          <form
+            onSubmit={handleSubmit}
+            className="grid grid-cols-1 md:grid-cols-2 gap-6"
+          >
+            <input
+              type="text"
+              name="name"
+              placeholder="Name"
+              value={formData.name}
+              onChange={handleChange}
+              className="p-3 rounded-xl border w-full"
+              required
+            />
+            <input
+              type="email"
+              name="email"
+              placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              className="p-3 rounded-xl border w-full"
+              required
+            />
+            <input
+              type="text"
+              name="college"
+              placeholder="College"
+              value={formData.college}
+              onChange={handleChange}
+              className="p-3 rounded-xl border w-full md:col-span-2"
+              required
+            />
+            <select
+              name="branch"
+              value={formData.branch}
+              onChange={handleChange}
+              className="p-3 rounded-xl border w-full"
+            >
               <option value="">Select Branch</option>
               <option value="CSE">CSE</option>
               <option value="ECE">ECE</option>
@@ -135,24 +197,55 @@ export default function App() {
 
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
               {courses.map((course) => (
-                <label key={course} className="flex items-center space-x-2 border p-3 rounded-xl cursor-pointer hover:bg-purple-50 transition">
-                  <input type="checkbox" value={course} checked={formData.courses.includes(course)} onChange={(e) => {
-                    if (e.target.checked) setFormData({ ...formData, courses: [...formData.courses, course] });
-                    else setFormData({ ...formData, courses: formData.courses.filter(c => c !== course) });
-                  }} />
+                <label
+                  key={course}
+                  className="flex items-center space-x-2 border p-3 rounded-xl cursor-pointer hover:bg-purple-50 transition"
+                >
+                  <input
+                    type="checkbox"
+                    value={course}
+                    checked={formData.courses.includes(course)}
+                    onChange={(e) => {
+                      if (e.target.checked)
+                        setFormData({
+                          ...formData,
+                          courses: [...formData.courses, course],
+                        });
+                      else
+                        setFormData({
+                          ...formData,
+                          courses: formData.courses.filter(
+                            (c) => c !== course
+                          ),
+                        });
+                    }}
+                  />
                   <span>{course}</span>
                 </label>
               ))}
             </div>
 
-            <button type="submit" className="md:col-span-2 bg-purple-600 text-white p-3 rounded-xl mt-4 flex justify-center items-center space-x-2">
+            <button
+              type="submit"
+              className="md:col-span-2 bg-purple-600 text-white p-3 rounded-xl mt-4 flex justify-center items-center space-x-2"
+            >
               {status === "loading" && <FaSpinner className="animate-spin" />}
-              <span>{status === "loading" ? "Submitting..." : "Register"}</span>
+              <span>
+                {status === "loading" ? "Submitting..." : "Register"}
+              </span>
             </button>
           </form>
 
-          {status === "success" && <p className="text-green-600 text-center mt-4 animate-bounce">🎉 Registered successfully!</p>}
-          {status === "error" && <p className="text-red-600 text-center mt-4 animate-bounce">❌ Something went wrong!</p>}
+          {status === "success" && (
+            <p className="text-green-600 text-center mt-4 animate-bounce">
+              🎉 Registered successfully!
+            </p>
+          )}
+          {status === "error" && (
+            <p className="text-red-600 text-center mt-4 animate-bounce">
+              ❌ Something went wrong!
+            </p>
+          )}
         </div>
       )}
 
@@ -161,35 +254,90 @@ export default function App() {
         <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6 animate-fadeIn">
           {!isAdmin ? (
             <>
-              <h2 className="text-2xl font-bold text-center mb-4 text-pink-700">Admin Login</h2>
-              <input type="text" placeholder="Username" value={adminLogin.username} onChange={(e) => setAdminLogin({ ...adminLogin, username: e.target.value })} className="w-full px-4 py-2 mb-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-pink-400" />
-              <input type="password" placeholder="Password" value={adminLogin.password} onChange={(e) => setAdminLogin({ ...adminLogin, password: e.target.value })} className="w-full px-4 py-2 mb-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-pink-400" />
-              <button onClick={handleAdminLogin} className="w-full bg-pink-500 text-white py-2 rounded-xl hover:bg-pink-600 transition">Login</button>
-              {adminStatus && <p className="text-center mt-2 text-green-600">{adminStatus}</p>}
+              <h2 className="text-2xl font-bold text-center mb-4 text-pink-700">
+                Admin Login
+              </h2>
+              <input
+                type="text"
+                placeholder="Username"
+                value={adminLogin.username}
+                onChange={(e) =>
+                  setAdminLogin({ ...adminLogin, username: e.target.value })
+                }
+                className="w-full px-4 py-2 mb-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-pink-400"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={adminLogin.password}
+                onChange={(e) =>
+                  setAdminLogin({ ...adminLogin, password: e.target.value })
+                }
+                className="w-full px-4 py-2 mb-3 rounded-xl border focus:outline-none focus:ring-2 focus:ring-pink-400"
+              />
+              <button
+                onClick={handleAdminLogin}
+                className="w-full bg-pink-500 text-white py-2 rounded-xl hover:bg-pink-600 transition"
+              >
+                Login
+              </button>
+              {adminStatus && (
+                <p className="text-center mt-2 text-green-600">
+                  {adminStatus}
+                </p>
+              )}
             </>
           ) : (
             <>
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-pink-700">Admin Panel</h2>
-                <button onClick={handleLogout} className="px-3 py-1 bg-red-500 text-white rounded-xl hover:bg-red-600 transition">
+                <h2 className="text-2xl font-bold text-pink-700">
+                  Admin Panel
+                </h2>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1 bg-red-500 text-white rounded-xl hover:bg-red-600 transition"
+                >
                   Logout
                 </button>
               </div>
 
               <div className="flex mb-4 space-x-2">
-                <input type="text" value={newCourse} onChange={(e) => setNewCourse(e.target.value)} placeholder="New course name" className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400" />
-                <button onClick={addCourse} className="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 flex items-center space-x-2"><FaPlus /> <span>Add</span></button>
+                <input
+                  type="text"
+                  value={newCourse}
+                  onChange={(e) => setNewCourse(e.target.value)}
+                  placeholder="New course name"
+                  className="w-full px-3 py-2 border rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+                />
+                <button
+                  onClick={addCourse}
+                  className="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 flex items-center space-x-2"
+                >
+                  <FaPlus /> <span>Add</span>
+                </button>
               </div>
 
               <ul className="space-y-2">
                 {courses.map((course) => (
-                  <li key={course} className="flex justify-between items-center bg-pink-50 border border-pink-200 px-3 py-2 rounded-xl">
-                    <span className="font-semibold text-pink-700">{course}</span>
-                    <button onClick={() => deleteCourse(course)} className="text-red-600 hover:text-red-800 transition"><FaTrash /></button>
+                  <li
+                    key={course}
+                    className="flex justify-between items-center bg-pink-50 border border-pink-200 px-3 py-2 rounded-xl"
+                  >
+                    <span className="font-semibold text-pink-700">
+                      {course}
+                    </span>
+                    <button
+                      onClick={() => deleteCourse(course)}
+                      className="text-red-600 hover:text-red-800 transition"
+                    >
+                      <FaTrash />
+                    </button>
                   </li>
                 ))}
               </ul>
-              {adminStatus && <p className="text-green-600 mt-2">{adminStatus}</p>}
+              {adminStatus && (
+                <p className="text-green-600 mt-2">{adminStatus}</p>
+              )}
             </>
           )}
         </div>
