@@ -24,8 +24,10 @@ const Course = mongoose.model("Course", courseSchema);
 // Google Sheets Setup
 // ------------------------
 async function appendToSheet(data) {
+
+  const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
   const auth = new google.auth.GoogleAuth({
-    keyFile: "credentials.json",
+    credentials,
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
 
