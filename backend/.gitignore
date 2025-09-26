@@ -1,0 +1,24 @@
+# Node modules
+node_modules/
+
+# Environment variables
+.env
+
+# Google service account credentials
+credentials.json
+
+# Logs
+logs/
+*.log
+
+# Optional OS files
+.DS_Store
+Thumbs.db
+
+# NPM debug files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build output (if any)
+dist/
