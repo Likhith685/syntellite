@@ -14,7 +14,7 @@ const app = express();
 // ------------------------
 app.use(
   cors({
-    origin: "",
+    origin: "https://syntellite-task.vercel.app",
     credentials: true,
   })
 );
